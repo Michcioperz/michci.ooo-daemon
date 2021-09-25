@@ -21,7 +21,7 @@ func loadConfig() (config *map[string]string) {
 	config = new(map[string]string)
 	f, err := os.Open("repository-secrets.json")
 	panicIfErr(err)
-	defer panicIfErr(f.Close())
+	defer func() { panicIfErr(f.Close()) }()
 	dec := json.NewDecoder(f)
 	panicIfErr(dec.Decode(config))
 	return
