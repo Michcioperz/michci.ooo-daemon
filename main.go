@@ -30,23 +30,38 @@ func loadConfig() (config *map[string]string) {
 }
 
 func handle(w http.ResponseWriter, r *http.Request) {
-	repo, token, _ := r.BasicAuth()
-	validToken, repoExists := (*validProjects)[repo]
-	if !repoExists || (token != validToken) {
-		w.WriteHeader(http.StatusForbidden)
+	if r.Method != http.MethodPost {
+		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	w.WriteHeader(http.StatusCreated)
+	repo, token, hasAuth := r.BasicAuth()
+	if !hasAuth {
+		w.WriteHeader(http.StatusUnauthorized)
+		return
+	}
+	validToken, repoExists := (*validProjects)[repo]
+	if !repoExists || (token != validToken) {
+		w.WriteHeader(http.StatusUnavailableForLegalReasons)
+		return
+	}
 
 	cmd := exec.Command("./build_project.sh", repo)
 	out, err := cmd.StdoutPipe()
 	panicIfErr(err)
 	cmd.Stderr = cmd.Stdout
+	err = cmd.Start()
 
-	flusher, isFlusher := w.(http.Flusher)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		log.Print(err)
+		return
+	}
+
+	w.WriteHeader(http.StatusCreated)
 	logger := log.New(os.Stderr, fmt.Sprintf("[%v] ", repo), 0)
 	logger.Printf("run started: %v", cmd.Start())
 	buf := bufio.NewScanner(out)
+	flusher, isFlusher := w.(http.Flusher)
 	for buf.Scan() {
 		logger.Print(buf.Text())
 		fmt.Fprintln(w, buf.Text())
