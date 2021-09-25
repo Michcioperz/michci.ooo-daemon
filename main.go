@@ -28,8 +28,7 @@ func loadConfig() (config *map[string]string) {
 }
 
 func handle(w http.ResponseWriter, r *http.Request) {
-	repo := r.URL.User.Username()
-	token, _ := r.URL.User.Password()
+	repo, token, _ := r.BasicAuth()
 	validToken, repoExists := (*validProjects)[repo]
 	if !repoExists || (token != validToken) {
 		w.WriteHeader(http.StatusForbidden)
