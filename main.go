@@ -1,7 +1,9 @@
 package main
 
 import (
+	"bufio"
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -35,9 +37,25 @@ func handle(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.WriteHeader(http.StatusCreated)
+
 	cmd := exec.Command("./build_project.sh", repo)
-	cmd.Stdout = w
-	log.Printf("run of %v finished: %v", repo, cmd.Run())
+	out, err := cmd.StdoutPipe()
+	panicIfErr(err)
+	cmd.Stderr = cmd.Stdout
+
+	flusher, isFlusher := w.(http.Flusher)
+	logger := log.New(os.Stderr, fmt.Sprintf("[%v] ", repo), 0)
+	logger.Printf("run started: %v", cmd.Start())
+	buf := bufio.NewScanner(out)
+	for buf.Scan() {
+		logger.Print(buf.Text())
+		fmt.Fprintln(w, buf.Text())
+		if isFlusher {
+			flusher.Flush()
+		}
+	}
+	panicIfErr(buf.Err())
+	logger.Printf("run finished: %v", cmd.Wait())
 }
 
 func main() {
