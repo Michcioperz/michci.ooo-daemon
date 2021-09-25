@@ -77,7 +77,7 @@ func main() {
 	go func() {
 		for {
 			validProjects = loadConfig()
-			time.Sleep(60)
+			time.Sleep(time.Minute)
 		}
 	}()
 	for validProjects == nil {
